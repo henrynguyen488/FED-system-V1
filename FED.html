@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Federal Reserve Simulator UI</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: Inter, Arial, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top left, #1d4ed8 0, transparent 35%),
+        radial-gradient(circle at bottom right, #7c3aed 0, transparent 35%),
+        #020617;
+      color: #e5e7eb;
+    }
+
+    .app {
+      max-width: 1400px;
+      margin: auto;
+      padding: 32px;
+    }
+
+    .hero {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 28px;
+      border-radius: 28px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      box-shadow: 0 30px 80px rgba(0,0,0,.35);
+      backdrop-filter: blur(16px);
+      margin-bottom: 24px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 34px;
+      background: linear-gradient(90deg, #93c5fd, #c4b5fd, #f9a8d4);
+      -webkit-background-clip: text;
+      color: transparent;
+    }
+
+    .subtitle {
+      color: #94a3b8;
+      margin-top: 8px;
+    }
+
+    .wallet {
+      text-align: right;
+      font-size: 14px;
+      color: #cbd5e1;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 18px;
+    }
+
+    .card {
+      grid-column: span 4;
+      padding: 22px;
+      border-radius: 24px;
+      background: rgba(15, 23, 42, 0.78);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      box-shadow: 0 18px 50px rgba(0,0,0,.28);
+      backdrop-filter: blur(14px);
+    }
+
+    .wide {
+      grid-column: span 8;
+    }
+
+    .full {
+      grid-column: span 12;
+    }
+
+    h2 {
+      margin-top: 0;
+      font-size: 18px;
+      color: #f8fafc;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      color: #94a3b8;
+      margin: 12px 0 6px;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, .25);
+      background: rgba(2, 6, 23, .72);
+      color: #e5e7eb;
+      outline: none;
+    }
+
+    textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      border-color: #60a5fa;
+      box-shadow: 0 0 0 3px rgba(96, 165, 250, .18);
+    }
+
+    button {
+      cursor: pointer;
+      border: 0;
+      border-radius: 14px;
+      padding: 12px 16px;
+      margin-top: 14px;
+      color: white;
+      font-weight: 700;
+      background: linear-gradient(135deg, #2563eb, #7c3aed);
+      box-shadow: 0 12px 30px rgba(37,99,235,.3);
+      transition: .2s;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.08);
+    }
+
+    button.secondary {
+      background: linear-gradient(135deg, #334155, #475569);
+    }
+
+    button.danger {
+      background: linear-gradient(135deg, #dc2626, #be123c);
+    }
+
+    button.success {
+      background: linear-gradient(135deg, #059669, #16a34a);
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .row > * {
+      flex: 1;
+    }
+
+    .stat {
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(2, 6, 23, .58);
+      border: 1px solid rgba(148, 163, 184, .14);
+      margin-bottom: 10px;
+    }
+
+    .stat-title {
+      color: #94a3b8;
+      font-size: 13px;
+    }
+
+    .stat-value {
+      font-size: 20px;
+      font-weight: 800;
+      margin-top: 4px;
+      word-break: break-word;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(59,130,246,.18);
+      color: #93c5fd;
+      font-size: 12px;
+      font-weight: 700;
+      margin-right: 6px;
+    }
+
+    .log {
+      height: 280px;
+      overflow: auto;
+      background: #020617;
+      border-radius: 18px;
+      border: 1px solid rgba(148, 163, 184, .18);
+      padding: 14px;
+      font-family: Consolas, monospace;
+      font-size: 13px;
+      white-space: pre-wrap;
+    }
+
+    .ok { color: #86efac; }
+    .err { color: #fca5a5; }
+    .info { color: #93c5fd; }
+
+    @media (max-width: 950px) {
+      .card, .wide {
+        grid-column: span 12;
+      }
+
+      .hero {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+      }
+
+      .wallet {
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <div class="hero">
+      <div>
+        <h1>Federal Reserve Simulator</h1>
+        <div class="subtitle">Dashboard test governance, proposal, voting & execution</div>
+      </div>
+      <div class="wallet">
+        <button onclick="connectWallet()">Connect MetaMask</button>
+        <div id="account">Chưa kết nối ví</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card full">
+        <h2>⚙️ Contract Setup</h2>
+        <label>Contract Address</label>
+        <input id="contractAddress" placeholder="0x..." />
+        <button onclick="loadContract()">Load Contract</button>
+        <button class="secondary" onclick="refreshState()">Refresh State</button>
+      </div>
+
+      <div class="card">
+        <h2>🏛️ FED State</h2>
+        <div class="stat">
+          <div class="stat-title">Chair</div>
+          <div class="stat-value" id="chair">-</div>
+        </div>
+        <div class="stat">
+          <div class="stat-title">Governor Count</div>
+          <div class="stat-value" id="governorCount">-</div>
+        </div>
+        <div class="stat">
+          <div class="stat-title">Current Rate</div>
+          <div class="stat-value" id="rate">-</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>🚨 Emergency Facility</h2>
+        <div class="stat">
+          <div class="stat-title">Active</div>
+          <div class="stat-value" id="facilityActive">-</div>
+        </div>
+        <div class="stat">
+          <div class="stat-title">Facility Name</div>
+          <div class="stat-value" id="facilityName">-</div>
+        </div>
+        <div class="stat">
+          <div class="stat-title">Limit</div>
+          <div class="stat-value" id="facilityLimit">-</div>
+        </div>
+        <button class="danger" onclick="closeFacility()">Close Facility</button>
+      </div>
+
+      <div class="card">
+        <h2>📊 Balance Sheet</h2>
+        <div class="stat">
+          <div class="stat-title">Latest Action</div>
+          <div class="stat-value" id="balanceAction">-</div>
+        </div>
+      </div>
+
+      <div class="card wide">
+        <h2>📝 Create Proposal</h2>
+
+        <label>Proposal Type</label>
+        <select id="proposalType" onchange="toggleProposalFields()">
+          <option value="rate">Rate Decision</option>
+          <option value="facility">Emergency Facility</option>
+          <option value="balance">Balance Sheet Action</option>
+        </select>
+
+        <label>Title</label>
+        <input id="title" placeholder="Example: Cut rate by 25 bps" />
+
+        <label>Description</label>
+        <textarea id="description" placeholder="Reason / macro context..."></textarea>
+
+        <div id="rateFields">
+          <label>Proposed Rate Bps</label>
+          <input id="proposedRateBps" type="number" placeholder="500 = 5.00%" />
+        </div>
+
+        <div id="facilityFields" style="display:none">
+          <label>Facility Name</label>
+          <input id="facilityInputName" placeholder="Bank Term Funding Program" />
+
+          <label>Facility Limit</label>
+          <input id="facilityInputLimit" type="number" placeholder="1000000000" />
+        </div>
+
+        <div id="balanceFields" style="display:none">
+          <label>Action Note</label>
+          <input id="actionNote" placeholder="Start quantitative tightening..." />
+        </div>
+
+        <label>Voting Period Seconds</label>
+        <input id="votingPeriod" type="number" value="60" />
+
+        <button onclick="createProposal()">Create Proposal</button>
+      </div>
+
+      <div class="card">
+        <h2>🗳️ Vote / Finalize / Execute</h2>
+
+        <label>Proposal ID</label>
+        <input id="proposalId" type="number" placeholder="1" />
+
+        <div class="row">
+          <button class="success" onclick="vote(true)">Vote YES</button>
+          <button class="danger" onclick="vote(false)">Vote NO</button>
+        </div>
+
+        <button onclick="finalizeProposal()">Finalize</button>
+        <button onclick="executeProposal()">Execute</button>
+        <button class="danger" onclick="cancelProposal()">Cancel</button>
+
+        <button class="secondary" onclick="loadProposal()">Load Proposal</button>
+        <button class="secondary" onclick="checkQuorum()">Check Quorum</button>
+      </div>
+
+      <div class="card">
+        <h2>👔 Chair / Governors</h2>
+
+        <label>Address</label>
+        <input id="adminAddress" placeholder="0x..." />
+
+        <button onclick="addGovernor()">Add Governor</button>
+        <button class="danger" onclick="removeGovernor()">Remove Governor</button>
+        <button onclick="transferChair()">Transfer Chair</button>
+
+        <label>Check Governor Address</label>
+        <input id="checkGovernorAddress" placeholder="0x..." />
+        <button class="secondary" onclick="checkGovernor()">Check Governor</button>
+      </div>
+
+      <div class="card wide">
+        <h2>🔎 Proposal Viewer</h2>
+        <div id="proposalView">
+          <span class="pill">No proposal loaded</span>
+        </div>
+      </div>
+
+      <div class="card full">
+        <h2>🧾 Logs</h2>
+        <div class="log" id="logs"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  let provider;
+  let signer;
+  let contract;
+
+  const abi = [
+    "function chair() view returns (address)",
+    "function governorCount() view returns (uint256)",
+    "function currentFederalFundsRateBps() view returns (uint256)",
+    "function emergencyFacilityActive() view returns (bool)",
+    "function activeFacilityName() view returns (string)",
+    "function activeFacilityLimit() view returns (uint256)",
+    "function latestBalanceSheetAction() view returns (string)",
+    "function proposalCount() view returns (uint256)",
+    "function isGovernor(address) view returns (bool)",
+
+    "function transferChair(address newChair)",
+    "function addGovernor(address governor)",
+    "function removeGovernor(address governor)",
+
+    "function createRateProposal(string title,string description,uint256 proposedRateBps,uint256 votingPeriodSeconds) returns (uint256)",
+    "function createEmergencyFacilityProposal(string title,string description,string facilityName,uint256 facilityLimit,uint256 votingPeriodSeconds) returns (uint256)",
+    "function createBalanceSheetProposal(string title,string description,string actionNote,uint256 votingPeriodSeconds) returns (uint256)",
+
+    "function vote(uint256 proposalId,bool support)",
+    "function finalizeProposal(uint256 proposalId)",
+    "function executeProposal(uint256 proposalId)",
+    "function cancelProposal(uint256 proposalId)",
+    "function closeEmergencyFacility()",
+
+    "function getProposalCore(uint256 proposalId) view returns (tuple(uint256 id,uint8 proposalType,string title,string description,uint256 createdAt,uint256 deadline,uint8 status,address proposer,bool executed))",
+    "function getProposalVotes(uint256 proposalId) view returns (tuple(uint256 yesVotes,uint256 noVotes))",
+    "function getRateProposal(uint256 proposalId) view returns (tuple(uint256 proposedRateBps))",
+    "function getFacilityProposal(uint256 proposalId) view returns (tuple(string facilityName,uint256 facilityLimit))",
+    "function getBalanceSheetProposal(uint256 proposalId) view returns (tuple(string actionNote))",
+    "function quorumReached(uint256 proposalId) view returns (bool)"
+  ];
+
+  const typeNames = ["RateDecision", "EmergencyFacility", "BalanceSheetAction"];
+  const statusNames = ["Active", "Approved", "Rejected", "Executed", "Cancelled"];
+
+  function log(message, type = "info") {
+    const box = document.getElementById("logs");
+    const time = new Date().toLocaleTimeString();
+    box.innerHTML += `<span class="${type}">[${time}] ${message}</span>\n`;
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function shortAddr(addr) {
+    if (!addr) return "-";
+    return addr.slice(0, 6) + "..." + addr.slice(-4);
+  }
+
+  function getError(err) {
+    return err?.reason || err?.shortMessage || err?.message || "Unknown error";
+  }
+
+  async function connectWallet() {
+    try {
+      if (!window.ethereum) throw new Error("MetaMask chưa được cài");
+
+      provider = new ethers.BrowserProvider(window.ethereum);
+      signer = await provider.getSigner();
+
+      const address = await signer.getAddress();
+      document.getElementById("account").innerText = "Connected: " + shortAddr(address);
+
+      log("✅ Đã kết nối ví: " + address, "ok");
+    } catch (err) {
+      log("❌ Connect wallet lỗi: " + getError(err), "err");
+    }
+  }
+
+  async function loadContract() {
+    try {
+      if (!signer) await connectWallet();
+
+      const address = document.getElementById("contractAddress").value.trim();
+      if (!ethers.isAddress(address)) throw new Error("Contract address không hợp lệ");
+
+      contract = new ethers.Contract(address, abi, signer);
+
+      log("✅ Đã load contract: " + address, "ok");
+      await refreshState();
+    } catch (err) {
+      log("❌ Load contract lỗi: " + getError(err), "err");
+    }
+  }
+
+  async function refreshState() {
+    try {
+      if (!contract) throw new Error("Chưa load contract");
+
+      const [
+        chair,
+        governorCount,
+        rate,
+        active,
+        facilityName,
+        facilityLimit,
+        balanceAction
+      ] = await Promise.all([
+        contract.chair(),
+        contract.governorCount(),
+        contract.currentFederalFundsRateBps(),
+        contract.emergencyFacilityActive(),
+        contract.activeFacilityName(),
+        contract.activeFacilityLimit(),
+        contract.latestBalanceSheetAction()
+      ]);
+
+      document.getElementById("chair").innerText = shortAddr(chair);
+      document.getElementById("governorCount").innerText = governorCount.toString();
+      document.getElementById("rate").innerText = `${rate.toString()} bps = ${(Number(rate) / 100).toFixed(2)}%`;
+      document.getElementById("facilityActive").innerText = active ? "YES" : "NO";
+      document.getElementById("facilityName").innerText = facilityName || "-";
+      document.getElementById("facilityLimit").innerText = facilityLimit.toString();
+      document.getElementById("balanceAction").innerText = balanceAction || "-";
+
+      log("🔄 State refreshed", "ok");
+    } catch (err) {
+      log("❌ Refresh lỗi: " + getError(err), "err");
+    }
+  }
+
+  function toggleProposalFields() {
+    const type = document.getElementById("proposalType").value;
+
+    document.getElementById("rateFields").style.display = type === "rate" ? "block" : "none";
+    document.getElementById("facilityFields").style.display = type === "facility" ? "block" : "none";
+    document.getElementById("balanceFields").style.display = type === "balance" ? "block" : "none";
+  }
+
+  async function createProposal() {
+    try {
+      if (!contract) throw new Error("Chưa load contract");
+
+      const type = document.getElementById("proposalType").value;
+      const title = document.getElementById("title").value.trim();
+      const description = document.getElementById("description").value.trim();
+      const votingPeriod = document.getElementById("votingPeriod").value;
+
+      if (!title) throw new Error("Title không được trống");
+      if (!description) throw new Error("Description không được trống");
+      if (!votingPeriod || Number(votingPeriod) <= 0) throw new Error("Voting period phải > 0");
+
+      let tx;
+
+      if (type === "rate") {
+        const proposedRateBps = document.getElementById("proposedRateBps").value;
+        if (proposedRateBps === "" || Number(proposedRateBps) > 10000) {
+          throw new Error("Rate phải từ 0 đến 10000 bps");
+        }
+
+        tx = await contract.createRateProposal(
+          title,
+          description,
+          proposedRateBps,
+          votingPeriod
+        );
+      }
+
+      if (type === "facility") {
+        const facilityName = document.getElementById("facilityInputName").value.trim();
+        const facilityLimit = document.getElementById("facilityInputLimit").value;
+
+        if (!facilityName) throw new Error("Facility name không được trống");
+        if (facilityLimit === "" || Number(facilityLimit) < 0) throw new Error("Facility limit không hợp lệ");
+
+        tx = await contract.createEmergencyFacilityProposal(
+          title,
+          description,
+          facilityName,
+          facilityLimit,
+          votingPeriod
+        );
+      }
+
+      if (type === "balance") {
+        const actionNote = document.getElementById("actionNote").value.trim();
+        if (!actionNote) throw new Error("Action note không được trống");
+
+        tx = await contract.createBalanceSheetProposal(
+          title,
+          description,
+          actionNote,
+          votingPeriod
+        );
+      }
+
+      log("⏳ Đang tạo proposal... TX: " + tx.hash);
+      await tx.wait();
+
+      log("✅ Proposal created thành công", "ok");
+      await refreshState();
+    } catch (err) {
+      log("❌ Create proposal lỗi: " + getError(err), "err");
+    }
+  }
+
+  async function vote(support) {
+    try {
+      const id = getProposalId();
+      const tx = await contract.vote(id, support);
+
+      log(`⏳ Đang vote ${support ? "YES" : "NO"} proposal #${id}... TX: ${tx.hash}`);
+      await tx.wait();
+
+      log("✅ Vote thành công", "ok");
+      await loadProposal();
+    } catch (err) {
+      log("❌ Vote lỗi: " + getError(err), "err");
+    }
+  }
+
+  async function finalizeProposal() {
+    try {
+      const id = getProposalId();
+      const tx = await contract.finalizeProposal(id);
+
+      log(`⏳ Đang finalize proposal #${id}... TX: ${tx.hash}`);
+      await tx.wait();
+
+      log("✅ Finalize thành công", "ok");
+      await loadProposal();
+    } catch (err) {
+      log("❌ Finalize lỗi: " + getError(err), "err");
+      log("💡 Nếu lỗi 'Voting still ongoing', hãy chờ hết votingPeriodSeconds rồi bấm lại.", "info");
+    }
+  }
+
+  async function executeProposal() {
+    try {
+      const id = getProposalId();
+      const tx = await contract.executeProposal(id);
+
+      log(`⏳ Đang execute proposal #${id}... TX: ${tx.hash}`);
+      await tx.wait();
+
+      log("✅ Execute thành công", "ok");
+      await refreshState();
+      await loadProposal();
+    } catch (err) {
+      log("❌ Execute lỗi: " + getError(err), "err");
+    }
+  }
+
+  async function cancelProposal() {
+    try {
+      const id = getProposalId();
+      const tx = await contract.cancelProposal(id);
+
+      log(`⏳ Đang cancel proposal #${id}... TX: ${tx.hash}`);
+      await tx.wait();
+
+      log("✅ Cancel thành công", "ok");
+      await loadProposal();
+    } catch (err) {
+      log("❌ Cancel lỗi: " + getError(err), "err");
+    }
+  }
+
+  async function loadProposal() {
+    try {
+      const id = getProposalId();
+
+      const core = await contract.getProposalCore(id);
+      const votes = await contract.getProposalVotes(id);
+
+      let extra = "";
+
+      if (Number(core.proposalType) === 0) {
+        const r = await contract.getRateProposal(id);
+        extra = `<div class="pill">Proposed Rate: ${r.proposedRateBps.toString()} bps</div>`;
+      }
+
+      if (Number(core.proposalType) === 1) {
+        const f = await contract.getFacilityProposal(id);
+        extra = `
+          <div class="pill">Facility: ${f.facilityName}</div>
+          <div class="pill">Limit: ${f.facilityLimit.toString()}</div>
+        `;
+      }
+
+      if (Number(core.proposalType) === 2) {
+        const b = await contract.getBalanceSheetProposal(id);
+        extra = `<div class="pill">Action: ${b.actionNote}</div>`;
+      }
+
+      const now = Math.floor(Date.now() / 1000);
+      const deadline = Number(core.deadline);
+      const remaining = deadline > now ? `${deadline - now}s remaining` : "Voting ended";
+
+      document.getElementById("proposalView").innerHTML = `
+        <div class="stat">
+          <div class="stat-title">Proposal #${core.id.toString()}</div>
+          <div class="stat-value">${core.title}</div>
+        </div>
+
+        <p>${core.description}</p>
+
+        <div>
+          <span class="pill">${typeNames[Number(core.proposalType)]}</span>
+          <span class="pill">${statusNames[Number(core.status)]}</span>
+          <span class="pill">${remaining}</span>
+          <span class="pill">Executed: ${core.executed}</span>
+        </div>
+
+        <br/>
+        ${extra}
+
+        <div class="stat">
+          <div class="stat-title">Votes</div>
+          <div class="stat-value">YES: ${votes.yesVotes.toString()} / NO: ${votes.noVotes.toString()}</div>
+        </div>
+
+        <div class="stat">
+          <div class="stat-title">Proposer</div>
+          <div class="stat-value">${core.proposer}</div>
+        </div>
+      `;
+
+      log("🔎 Loaded proposal #" + id, "ok");
+    } catch (err) {
+      log("❌ Load proposal lỗi: " + getError(err), "err");
+    }
+  }
+
+  async function checkQuorum() {
+    try {
+      const id = getProposalId();
+      const reached = await contract.quorumReached(id);
+
+      log(`📌 Quorum proposal #${id}: ${reached ? "Reached ✅" : "Not reached ❌"}`, reached ? "ok" : "err");
+    } catch (err) {
+      log("❌ Check quorum lỗi: " + getError(err), "err");
+    }
+  }
+
+  async function addGovernor() {
+    try {
+      const addr = getAdminAddress();
+      const tx = await contract.addGovernor(addr);
+
+      log("⏳ Adding governor... TX: " + tx.hash);
+      await tx.wait();
+
+      log("✅ Governor added", "ok");
+      await refreshState();
+    } catch (err) {
+      log("❌ Add governor lỗi: " + getError(err), "err");
+    }
+  }
+
+  async function removeGovernor() {
+    try {
+      const addr = getAdminAddress();
+      const tx = await contract.removeGovernor(addr);
+
+      log("⏳ Removing governor... TX: " + tx.hash);
+      await tx.wait();
+
+      log("✅ Governor removed", "ok");
+      await refreshState();
+    } catch (err) {
+      log("❌ Remove governor lỗi: " + getError(err), "err");
+    }
+  }
+
+  async function transferChair() {
+    try {
+      const addr = getAdminAddress();
+      const tx = await contract.transferChair(addr);
+
+      log("⏳ Transferring chair... TX: " + tx.hash);
+      await tx.wait();
+
+      log("✅ Chair transferred", "ok");
+      await refreshState();
+    } catch (err) {
+      log("❌ Transfer chair lỗi: " + getError(err), "err");
+    }
+  }
+
+  async function checkGovernor() {
+    try {
+      const addr = document.getElementById("checkGovernorAddress").value.trim();
+      if (!ethers.isAddress(addr)) throw new Error("Address không hợp lệ");
+
+      const result = await contract.isGovernor(addr);
+      log(`👔 ${addr} isGovernor = ${result}`, result ? "ok" : "err");
+    } catch (err) {
+      log("❌ Check governor lỗi: " + getError(err), "err");
+    }
+  }
+
+  async function closeFacility() {
+    try {
+      const tx = await contract.closeEmergencyFacility();
+
+      log("⏳ Closing emergency facility... TX: " + tx.hash);
+      await tx.wait();
+
+      log("✅ Facility closed", "ok");
+      await refreshState();
+    } catch (err) {
+      log("❌ Close facility lỗi: " + getError(err), "err");
+    }
+  }
+
+  function getProposalId() {
+    if (!contract) throw new Error("Chưa load contract");
+
+    const id = document.getElementById("proposalId").value;
+    if (!id || Number(id) <= 0) throw new Error("Proposal ID không hợp lệ");
+
+    return id;
+  }
+
+  function getAdminAddress() {
+    if (!contract) throw new Error("Chưa load contract");
+
+    const addr = document.getElementById("adminAddress").value.trim();
+    if (!ethers.isAddress(addr)) throw new Error("Address không hợp lệ");
+
+    return addr;
+  }
+
+  window.ethereum?.on("accountsChanged", () => {
+    log("🔁 Account changed. Hãy connect lại ví.", "info");
+  });
+</script>
+</body>
+</html>
